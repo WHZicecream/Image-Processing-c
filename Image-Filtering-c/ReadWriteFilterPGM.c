@@ -23,6 +23,7 @@ int maxraw;
 unsigned char *image;
 unsigned char *newImage;
 double gaussianMask[25];
+double bilateralMask[25];
 
 
 void ReadPGM(FILE*);
@@ -30,7 +31,8 @@ void WritePGM(FILE*);
 void GaussianFilter(int, double);
 double GaussianLoop(int,int,int);
 double test(int);
-void BilateralFilter();
+void BilateralFilter(int,double,double);
+double BilateralLoop(int,int,int,double,double);
 
 
 int main(int argc, char **argv)
@@ -55,7 +57,8 @@ int main(int argc, char **argv)
   ReadPGM(fp);
 
   // your application here
-  GaussianFilter(5,0.84);
+  //GaussianFilter(5,0.84);
+  BilateralFilter(5,2,0.2);
 
   /* Begin writing PGM.... */
   printf("Begin writing PGM.... \n");
@@ -183,13 +186,11 @@ void GaussianFilter(int gaussDim, double sigma)
             }
             printf("\n");
     }
-    printf("%f ", gsum);
     for (i=0;i<ydim;i++){
         for(j=0;j<xdim;j++){
             newImage[i*xdim+j]=GaussianLoop(j,i,gaussDim);
         }
     }
-    printf("%f ", gsum);
 }
 
 double GaussianLoop(int currx,int curry,int gaussDim){
@@ -212,18 +213,62 @@ double GaussianLoop(int currx,int curry,int gaussDim){
             k++;
         }
     }
-    /*for (i=starting/xdim;i<starting+gaussDim;i++){
-        for (j=starting%xdim;j<starting+gaussDim;j++){
-            if(i>=0&&j>=0){
-                sum+=gaussianMask[k]*image[i*xdim+j];
-            }
-            k++;
-        }
-    }*/
     return sum;
 }
 
-void BilateralFilter()
+void BilateralFilter(int bilateralDim,double sigmaS, double sigmaR)
 {
-    ;
+    int i,j;
+    newImage = (unsigned char*)malloc(sizeof(unsigned char)*xdim*ydim);
+    //use bilateralLoop to calculate all the pixels and store into newImage
+    for (i=0;i<ydim;i++){
+        for(j=0;j<xdim;j++){
+            newImage[i*xdim+j]=BilateralLoop(j,i,bilateralDim,sigmaS,sigmaR);
+        }
+    }
+}
+
+double BilateralLoop(int currx, int curry, int bilateralDim, double sigmaS, double sigmaR)
+{
+    int i,j;
+    int k=0;
+    double bsum=0.0;
+    double sum=0.0;
+    double image2D[ydim][xdim];
+    //forming the bilateral mask for this pixel
+    for(i=0;i<bilateralDim;i++){
+        for (j=0;j<bilateralDim;j++){
+            double x=i-(bilateralDim-1)/2.0;
+            double y=j-(bilateralDim-1)/2.0;
+            //double result=(1/(2*M_PI*pow(sigmaS,2)))*exp(((pow((x),2)+pow((y),2))/((2*pow(sigmaS,2))))*(-1));
+            double result = exp((-1)*pow((y*bilateralDim+x-curry*xdim-currx),2)/(2*pow(sigmaS,2)))*exp((-1)*pow((y*bilateralDim+x-curry*xdim-currx),2)/(2*pow(sigmaR,2)));
+            bilateralMask[i*bilateralDim+j]=result;
+            printf("%f ", result);
+            bsum+=bilateralMask[i*bilateralDim+j];
+        }
+    }
+    for (i=0;i<bilateralDim;i++){
+        for (j=0;j<bilateralDim;j++){
+            bilateralMask[i*bilateralDim+j]/=bsum;
+        }
+    }
+
+    //reconstruct the array to 2d
+    for (i=0;i<ydim;i++){
+        for(j=0;j<xdim;j++) {
+            image2D[i][j]=image[i*xdim+j];
+        }
+    }
+    int startx=currx-bilateralDim/2;
+    int starty=curry-bilateralDim/2;
+    //use the 2D array and the mask to calculate the value on this pixel
+    for (i=starty;i<starty+bilateralDim;i++){
+        for (j=startx;j<startx+bilateralDim;j++){
+            if (i>=0&&j>=0){
+                sum+=image2D[i][j]*bilateralMask[k];
+            }
+            k++;
+        }
+    }
+    return sum;
 }
