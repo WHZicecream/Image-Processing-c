@@ -240,10 +240,9 @@ double BilateralLoop(int currx, int curry, int bilateralDim, double sigmaS, doub
         for (j=0;j<bilateralDim;j++){
             double x=i-(bilateralDim-1)/2.0;
             double y=j-(bilateralDim-1)/2.0;
-            //double result=(1/(2*M_PI*pow(sigmaS,2)))*exp(((pow((x),2)+pow((y),2))/((2*pow(sigmaS,2))))*(-1));
-            double result = exp((-1)*pow((y*bilateralDim+x-curry*xdim-currx),2)/(2*pow(sigmaS,2)))*exp((-1)*pow((y*bilateralDim+x-curry*xdim-currx),2)/(2*pow(sigmaR,2)));
+            double result=(1/(2*M_PI*pow(sigmaS,2)))*exp(((pow((x),2)+pow((y),2))/((2*pow(sigmaS,2))))*(-1));
+            //double result = exp((-1)*pow((y*bilateralDim+x-curry*xdim-currx),2)/(2*pow(sigmaS,2)))*exp((-1)*pow((y*bilateralDim+x-curry*xdim-currx),2)/(2*pow(sigmaR,2)));
             bilateralMask[i*bilateralDim+j]=result;
-            printf("%f ", result);
             bsum+=bilateralMask[i*bilateralDim+j];
         }
     }
