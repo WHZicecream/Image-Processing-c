@@ -24,10 +24,12 @@ unsigned char *image;
 unsigned char *newImage;
 double gaussianMask[25];
 
+
 void ReadPGM(FILE*);
 void WritePGM(FILE*);
 void GaussianFilter(int, double);
 double GaussianLoop(int,int,int);
+double test(int);
 void BilateralFilter();
 
 
@@ -158,15 +160,14 @@ void WritePGM(FILE* fp)
 void GaussianFilter(int gaussDim, double sigma)
 {
     int i,j,curr,starting;
-    double gsum;
+    double gsum=0.0;
     newImage = (unsigned char*)malloc(sizeof(unsigned char)*xdim*ydim);
     for(i=0;i<gaussDim;i++){
         for(j=0;j<gaussDim;j++){
-            double x=(double)i;
-            double y=(double)j;
+            double x=i-(gaussDim-1)/2.0;
+            double y=j-(gaussDim-1)/2.0;
             double result=(1/(2*M_PI*pow(sigma,2)))*exp(((pow((x),2)+pow((y),2))/((2*pow(sigma,2))))*(-1));
             gaussianMask[i*gaussDim+j]=result;
-            printf("%f ", gaussianMask[i*gaussDim+j]);
             gsum+=gaussianMask[i*gaussDim+j];
         }
     }
@@ -185,26 +186,40 @@ void GaussianFilter(int gaussDim, double sigma)
     printf("%f ", gsum);
     for (i=0;i<ydim;i++){
         for(j=0;j<xdim;j++){
-            curr = i*ydim+j;
-            starting = curr-gaussDim/2-gaussDim/2*xdim;
-            newImage[curr]=GaussianLoop(curr, starting, gaussDim);
+            newImage[i*xdim+j]=GaussianLoop(j,i,gaussDim);
         }
     }
     printf("%f ", gsum);
 }
 
-double GaussianLoop(int curr,int starting, int gaussDim){
+double GaussianLoop(int currx,int curry,int gaussDim){
     int i,j;
     int k=0;
-    double sum;
-    for (i=starting/xdim;i<starting+gaussDim;i++){
+    double sum=0.0;
+    double image2D[ydim][xdim];
+    for (i=0;i<ydim;i++){
+        for(j=0;j<xdim;j++) {
+            image2D[i][j]=image[i*xdim+j];
+        }
+    }
+    int startx=currx-gaussDim/2;
+    int starty=curry-gaussDim/2;
+    for (i=starty;i<starty+gaussDim;i++){
+        for (j=startx;j<startx+gaussDim;j++){
+            if (i>=0&&j>=0){
+                sum+=image2D[i][j]*gaussianMask[k];
+            }
+            k++;
+        }
+    }
+    /*for (i=starting/xdim;i<starting+gaussDim;i++){
         for (j=starting%xdim;j<starting+gaussDim;j++){
             if(i>=0&&j>=0){
                 sum+=gaussianMask[k]*image[i*xdim+j];
             }
             k++;
         }
-    }
+    }*/
     return sum;
 }
 
