@@ -12,7 +12,8 @@ when you use this function.
 #include <math.h>
 #include <malloc.h>
 #include <memory.h>
-
+#include <complex.h>
+#define PI 3.14159265
 #define max(x, y) ((x>y) ? (x):(y))
 #define min(x, y) ((x<y) ? (x):(y))
 
@@ -24,12 +25,16 @@ int padx;
 int pady;
 unsigned char *image;
 unsigned char *newImage;
+unsigned char *Preal;
+unsigned char *Pimg;
+unsigned char *out;
 
 void ReadPGM(FILE*);
 void WritePGM(FILE*);
 void Padding();
 void DFT();
-void idealLPF();
+void idealLPF(double);
+void inverseDFT();
 
 
 int main(int argc, char **argv)
@@ -53,9 +58,13 @@ int main(int argc, char **argv)
   }
   ReadPGM(fp);
 
-  // your application here
+  padx = xdim* 2 - 1;
+  pady = ydim* 2 - 1;
   Padding();
   DFT();
+  //idealLPF(15.0);
+  //inverseDFT();
+
 
   /* Begin writing PGM.... */
   printf("Begin writing PGM.... \n");
@@ -136,7 +145,6 @@ void ReadPGM(FILE* fp)
             fscanf(fp, "%d", &val);
             image[j*xdim+i] = val;
          }
-
      }
 
      fclose(fp);
@@ -160,14 +168,12 @@ void WritePGM(FILE* fp)
 
 void Padding()
 {
-    padx = xdim * 2 - 1;
-    pady = ydim * 2 - 1;
     int i, j;
     newImage = (unsigned char*)malloc(sizeof(unsigned char)*padx*pady);
     for (i=0;i<pady;i++){
         for (j=0;j<padx;j++){
             if (j>xdim||i>ydim){
-                newImage[i*padx+j] = 0;
+                newImage[i*padx+j] = 0.0;
             } else{
                 newImage[i*padx+j] = image[i*xdim+j];
             }
@@ -182,30 +188,92 @@ void Padding()
 
 void DFT()
 {
-    double Preal[padx*pady];
-    double Pimg[padx*pady];
+    Preal = (unsigned char*)malloc(sizeof(unsigned char)*padx*pady);
+    Pimg = (unsigned char*)malloc(sizeof(unsigned char)*padx*pady);
+    out = (unsigned char*)malloc(sizeof(unsigned char)*padx*pady);
 
     for (int y=0;y<pady;y++){
         for(int u=0;u<padx;u++){
-            Preal[padx*y+u] = 0;
-            Pimg[padx*y+u] = 0;
+            Preal[padx*y+u] = 0.0;
+            Pimg[padx*y+u] = 0.0;
+            //out[padx*y+u] = 0.0;
             for (int x=0;x<padx;x++){
-                Preal[padx*y+u] += newImage[padx*y+x]*cos((2*M_PI*u*x)/padx);
-                Pimg[padx*y+u] += -newImage[padx*y+x]*sin((2*M_PI*u*x)/padx);
+                //out[padx*y+u] += newImage[padx*y+u]*cexp(-((2*PI*u*x)/padx)*_Complex_I);
+                Preal[padx*y+u] += newImage[padx*y+x]*cos((2*PI*u*x)/padx);
+                Pimg[padx*y+u] += (-newImage[padx*y+x])*sin((2*PI*u*x)/padx)*_Complex_I;
             }
+            newImage[padx*y+u] = Preal[padx*y+u]+Pimg[padx*y+u];
         }
     }
-    for (int y=0;y<pady;y++){
-        for(int u=0;u<padx;u++){
-            for (int x=0;x<padx;x++){
-                newImage[padx*y+u] += Preal[padx*y+x]*cos((2*M_PI*u*x)/pady);
-                newImage[padx*y+u] += -Pimg[padx*y+x]*sin((2*M_PI*u*x)/pady);
+
+    for (int x=0;x<padx;x++){
+        for(int v=0;v<pady;v++){
+            Preal[padx*v+x] = 0.0;
+            Pimg[padx*v+x] = 0.0;
+            for (int y=0;y<pady;y++){
+                //newImage[padx*v+x] += out[padx*v+x]*cexp(-((2*PI*v*y)/pady)*_Complex_I);
+                Preal[padx*v+x] += newImage[padx*y+x]*cos((2*PI*v*y)/pady);
+                Pimg[padx*v+x] += (-newImage[padx*y+x])*sin((2*PI*v*y)/pady)*_Complex_I;
             }
+            newImage[padx*v+x] = Preal[padx*v+x]+Pimg[padx*v+x];
         }
     }
+
+    /*for (int y=0;y<pady;y++){
+        for(int x=0;x<padx;x++){
+            newImage[padx*y+x] = sqrt(pow(Preal[padx*v+x],2)+pow(Pimg[padx*v+x],2));
+        }
+    }*/
 }
 
-void idealLPF()
+void idealLPF(double cutOff)
 {
-    ;
+    double D;
+    double Do = 5;
+    int i, j;
+    for (j=0; j<pady; j++)
+        for (i=0; i<padx; i++) {
+            D = sqrt(pow((i-padx/2),2)+pow((j-pady/2),2));
+            if (D <= Do){
+                newImage[padx*j+i] = newImage[padx*j+i];
+            } else {
+                newImage[padx*j+i] = 0;
+            }
+        }
+}
+
+void inverseDFT()
+{
+        Preal = (unsigned char*)malloc(sizeof(unsigned char)*padx*pady);
+    Pimg = (unsigned char*)malloc(sizeof(unsigned char)*padx*pady);
+
+    for (int y=0;y<pady;y++){
+        for(int u=0;u<padx;u++){
+            Preal[padx*y+u] = 0.0;
+            Pimg[padx*y+u] = 0.0;
+            for (int x=0;x<padx;x++){
+                Preal[padx*y+u] += newImage[padx*y+x]*cos((2*PI*u*x)/padx);
+                Pimg[padx*y+u] += newImage[padx*y+x]*sin((2*PI*u*x)/padx)*_Complex_I;
+                newImage[padx*y+u] = Preal[padx*y+u]+Pimg[padx*y+u];
+            }
+        }
+    }
+
+    for (int x=0;x<padx;x++){
+        for(int v=0;v<pady;v++){
+            Preal[padx*v+x] = 0.0;
+            Pimg[padx*v+x] = 0.0;
+            for (int y=0;y<pady;y++){
+                Preal[padx*v+x] += newImage[padx*y+x]*cos((2*PI*v*y)/padx);
+                Pimg[padx*v+x] += newImage[padx*y+x]*sin((2*PI*v*y)/padx)*_Complex_I;
+                newImage[padx*v+x] = Preal[padx*v+x]+Pimg[padx*v+x];
+            }
+        }
+    }
+
+    for (int y=0;y<pady;y++){
+        for(int x=0;x<padx;x++){
+            newImage[padx*y+x] = newImage[padx*y+x]/(padx*pady);
+        }
+    }
 }
